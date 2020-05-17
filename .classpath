@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<classpath>
+	<classpathentry kind="con" path="org.eclipse.jdt.launching.JRE_CONTAINER"/>
+	<classpathentry kind="src" path="ps2000/PicoScope2000JNA/src"/>
+	<classpathentry kind="src" path="ps2000a/PicoScope2000AJNA/src"/>
+	<classpathentry kind="src" path="ps3000a/PicoScope3000AJNA/src"/>
+	<classpathentry kind="src" path="ps4000/PicoScope4000JNA/src"/>
+	<classpathentry kind="src" path="ps4000a/PicoScope4000AJNA/src"/>
+	<classpathentry kind="src" path="ps5000/PicoScope5000JNA/src"/>
+	<classpathentry kind="src" path="ps5000a/PicoScope5000AJNA/src"/>
+	<classpathentry kind="src" path="ps6000/PicoScope6000JNA/src"/>
+	<classpathentry kind="src" path="shared/PicoScope/src"/>
+	<classpathentry kind="src" path="usbdrdaq/USBDrDAQJNA/src"/>
+	<classpathentry kind="src" path="usbpt104/USBPT104JNA/src"/>
+	<classpathentry kind="src" path="usbtc08/USBTC08JNA/src"/>
+	<classpathentry kind="lib" path="shared/PicoScope/dist/PicoScope.jar"/>
+	<classpathentry kind="lib" path="D:/asset/input/jna/jna-5.5.0.jar"/>
+	<classpathentry kind="output" path="bin"/>
+</classpath>
