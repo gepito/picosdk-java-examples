@@ -15,6 +15,7 @@
 
 package com.picotech.picoscope.ps3000a.jna;
 
+import com.sun.jna.Callback;
 import com.sun.jna.Library;
 import com.sun.jna.Native;
 import com.sun.jna.Pointer;
@@ -27,9 +28,6 @@ import com.sun.jna.ptr.ShortByReference;
 public interface PS3000ACLibrary extends Library {
 
 	PS3000ACLibrary INSTANCE = (PS3000ACLibrary) Native.loadLibrary("ps3000a", PS3000ACLibrary.class);
-
-	// Method definitions from ps3000aApi.h C header file
-	// ==================================================
 
 	// C prototype definition :
 	// uint32_t ps3000aEnumerateUnits(int16_t * count, int8_t * serials, int16_t
@@ -75,6 +73,36 @@ public interface PS3000ACLibrary extends Library {
 	 */
 
 	/*
+	 * PREF0 PREF1 PICO_STATUS PREF2 PREF3 (ps3000aSetDigitalPort) ( int16_t handle,
+	 * PS3000A_DIGITAL_PORT port, int16_t enabled, int16_t logicLevel );
+	 * 
+	 * 
+	 */
+
+	int ps3000aSetDigitalPort(short handle, int port, short enabled, short logicLevel);
+
+	/*
+	 * PREF0 PREF1 PICO_STATUS PREF2 PREF3 (ps3000aIsReady) ( int16_t handle,
+	 * int16_t *ready );
+	 * 
+	 * 
+	 */
+
+	int ps3000aIsReady(short handle, ShortByReference ready);
+
+	/*
+	 * PREF0 PREF1 PICO_STATUS PREF2 PREF3 (ps3000aRunBlock) ( int16_t handle,
+	 * int32_t noOfPreTriggerSamples, int32_t noOfPostTriggerSamples, uint32_t
+	 * timebase, int16_t oversample, int32_t *timeIndisposedMs, uint32_t
+	 * segmentIndex, ps3000aBlockReady lpReady, void *pParameter );
+	 * 
+	 * 
+	 */
+
+	int ps3000aRunBlock(short handle, int noOfPreTriggerSamples, int noOfPostTriggerSamples, int timebase,
+			short oversample, IntByReference timeIndisposedMs, int segmentIndex, Pointer lpReady, Pointer pParameter);
+
+	/*
 	 * 
 	 * PREF0 PREF1 PICO_STATUS PREF2 PREF3 (ps3000aSetTriggerChannelProperties) (
 	 * int16_t handle, PS3000A_TRIGGER_CHANNEL_PROPERTIES *channelProperties,
@@ -85,6 +113,73 @@ public interface PS3000ACLibrary extends Library {
 
 	int ps3000aSetTriggerChannelProperties(short handle, PS3000A_TRIGGER_CHANNEL_PROPERTIES channelProperties,
 			short nChannelProperties, short auxOutputEnable, int autoTriggerMilliseconds);
+
+	/*
+	 * PREF0 PREF1 PICO_STATUS PREF2 PREF3 (ps3000aSetTriggerChannelConditionsV2) (
+	 * int16_t handle, PS3000A_TRIGGER_CONDITIONS_V2 *conditions, int16_t
+	 * nConditions );
+	 * 
+	 */
+
+	int ps3000aSetTriggerChannelConditionsV2(short handle, PS3000A_TRIGGER_CONDITIONS_V2 triggerConditions,
+			short nConditions);
+
+	/*
+	 * PREF0 PREF1 PICO_STATUS PREF2 PREF3 (ps3000aSetTriggerChannelDirections) (
+	 * int16_t handle, PS3000A_THRESHOLD_DIRECTION channelA,
+	 * PS3000A_THRESHOLD_DIRECTION channelB, PS3000A_THRESHOLD_DIRECTION channelC,
+	 * PS3000A_THRESHOLD_DIRECTION channelD, PS3000A_THRESHOLD_DIRECTION ext,
+	 * PS3000A_THRESHOLD_DIRECTION aux );
+	 * 
+	 */
+
+	int ps3000aSetTriggerChannelDirections(short handle, int channelA, int channelB, int channelC, int channelD,
+			int ext, int aux);
+
+	/*
+	 * PREF0 PREF1 PICO_STATUS PREF2 PREF3 (ps3000aSetTriggerDelay) ( int16_t
+	 * handle, uint32_t delay );
+	 * 
+	 * delay in percentage of buffer (?)
+	 * 
+	 */
+
+	int ps3000aSetTriggerDelay(short handle, int delay);
+
+	/*
+	 * PREF0 PREF1 PICO_STATUS PREF2 PREF3 (ps3000aSetPulseWidthQualifierV2) (
+	 * int16_t handle, PS3000A_PWQ_CONDITIONS_V2 *conditions, int16_t nConditions,
+	 * PS3000A_THRESHOLD_DIRECTION direction, uint32_t lower, uint32_t upper,
+	 * PS3000A_PULSE_WIDTH_TYPE type );
+	 * 
+	 */
+
+	int ps3000aSetPulseWidthQualifierV2(short handle, PS3000A_PWQ_CONDITIONS_V2 pwqConditions, short nConditions,
+			int direction, int lower, int upper, int type);
+
+	/*
+	 * PREF0 PREF1 PICO_STATUS PREF2 PREF3 (ps3000aSetSimpleTrigger) ( int16_t
+	 * handle, int16_t enable, PS3000A_CHANNEL source, int16_t threshold,
+	 * PS3000A_THRESHOLD_DIRECTION direction, uint32_t delay, int16_t autoTrigger_ms
+	 * );
+	 * 
+	 * 
+	 */
+
+	int ps3000aSetSimpleTrigger(short handle, short enable, int source, short threshold, int direction, int delay,
+			short autoTrigger_ms);
+
+	/*
+	 * PREF0 PREF1 PICO_STATUS PREF2 PREF3 (ps3000aGetValues) ( int16_t handle,
+	 * uint32_t startIndex, uint32_t *noOfSamples, uint32_t downSampleRatio,
+	 * PS3000A_RATIO_MODE downSampleRatioMode, uint32_t segmentIndex, int16_t
+	 * *overflow );
+	 * 
+	 * 
+	 */
+
+	int ps3000aGetValues(short handle, int startIndex, IntByReference noOfSamples, int downSampleRatio,
+			int downSampleRatioMode, int segmentIndex, ShortByReference overflow);
 
 	// Enumerations
 	// ============
@@ -114,18 +209,35 @@ public interface PS3000ACLibrary extends Library {
 	}
 
 	public enum PS3000A_CHANNEL {
-		  PS3000A_CHANNEL_A,
-		  PS3000A_CHANNEL_B,
-		  PS3000A_CHANNEL_C,
-		  PS3000A_CHANNEL_D,
-		  PS3000A_EXTERNAL,
-		  PS3000A_TRIGGER_AUX,
-		  PS3000A_MAX_TRIGGER_SOURCES
+		PS3000A_CHANNEL_A, PS3000A_CHANNEL_B, PS3000A_CHANNEL_C, PS3000A_CHANNEL_D, PS3000A_EXTERNAL,
+		PS3000A_TRIGGER_AUX, PS3000A_MAX_TRIGGER_SOURCES
 	}
 
 	public enum PS3000A_THRESHOLD_MODE {
 		PS3000A_LEVEL, PS3000A_WINDOW
 	}
+
+	public enum PS3000A_TRIGGER_STATE {
+		PS3000A_CONDITION_DONT_CARE, PS3000A_CONDITION_TRUE, PS3000A_CONDITION_FALSE, PS3000A_CONDITION_MAX
+	};
+
+	public enum PS3000A_THRESHOLD_DIRECTION {
+		PS3000A_ABOVE, // using upper threshold
+		PS3000A_BELOW, // using upper threshold
+		PS3000A_RISING, // using upper threshold
+		PS3000A_FALLING, // using upper threshold
+		PS3000A_RISING_OR_FALLING, // using both threshold
+		PS3000A_ABOVE_LOWER, // using lower threshold
+		PS3000A_BELOW_LOWER, // using lower threshold
+		PS3000A_RISING_LOWER, // using lower threshold
+		PS3000A_FALLING_LOWER, // using lower threshold
+		PS3000A_POSITIVE_RUNT, PS3000A_NEGATIVE_RUNT,
+	};
+
+	public enum PS3000A_PULSE_WIDTH_TYPE {
+		PS3000A_PW_TYPE_NONE, PS3000A_PW_TYPE_LESS_THAN, PS3000A_PW_TYPE_GREATER_THAN, PS3000A_PW_TYPE_IN_RANGE,
+		PS3000A_PW_TYPE_OUT_OF_RANGE
+	};
 
 	// Structures
 	// ==========
@@ -136,7 +248,8 @@ public interface PS3000ACLibrary extends Library {
 	 * thresholdLowerHysteresis; PS3000A_CHANNEL channel; PS3000A_THRESHOLD_MODE
 	 * thresholdMode; } PS3000A_TRIGGER_CHANNEL_PROPERTIES;
 	 */
-	@FieldOrder({"thresholdUpper", "thresholdUpperHysteresis", "thresholdLower", "thresholdLowerHysteresis", "channel", "thresholdMode"})
+	@FieldOrder({ "thresholdUpper", "thresholdUpperHysteresis", "thresholdLower", "thresholdLowerHysteresis", "channel",
+			"thresholdMode" })
 	public static class PS3000A_TRIGGER_CHANNEL_PROPERTIES extends Structure {
 		public short thresholdUpper;
 		public short thresholdUpperHysteresis;
@@ -145,4 +258,47 @@ public interface PS3000ACLibrary extends Library {
 		public int channel;
 		public int thresholdMode;
 	}
+
+	/*
+	 * #pragma pack(push,1) typedef struct tPS3000ATriggerConditionsV2 {
+	 * PS3000A_TRIGGER_STATE channelA; PS3000A_TRIGGER_STATE channelB;
+	 * PS3000A_TRIGGER_STATE channelC; PS3000A_TRIGGER_STATE channelD;
+	 * PS3000A_TRIGGER_STATE external; PS3000A_TRIGGER_STATE aux;
+	 * PS3000A_TRIGGER_STATE pulseWidthQualifier; PS3000A_TRIGGER_STATE digital; }
+	 * PS3000A_TRIGGER_CONDITIONS_V2; #pragma pack(pop)
+	 * 
+	 */
+
+	@FieldOrder({ "channelA", "channelB", "channelC", "channelD", "external", "aux", "pulseWidthQualifier", "digital" })
+	public static class PS3000A_TRIGGER_CONDITIONS_V2 extends Structure {
+		public int channelA;
+		public int channelB;
+		public int channelC;
+		public int channelD;
+		public int external;
+		public int aux;
+		public int pulseWidthQualifier;
+		public int digital;
+	}
+
+	/*
+	 * typedef struct tPS3000APwqConditionsV2 { PS3000A_TRIGGER_STATE channelA;
+	 * PS3000A_TRIGGER_STATE channelB; PS3000A_TRIGGER_STATE channelC;
+	 * PS3000A_TRIGGER_STATE channelD; PS3000A_TRIGGER_STATE external;
+	 * PS3000A_TRIGGER_STATE aux; PS3000A_TRIGGER_STATE digital; }
+	 * PS3000A_PWQ_CONDITIONS_V2;
+	 * 
+	 */
+
+	@FieldOrder({ "channelA", "channelB", "channelC", "channelD", "external", "aux", "digital" })
+	public static class PS3000A_PWQ_CONDITIONS_V2 extends Structure {
+		public int channelA;
+		public int channelB;
+		public int channelC;
+		public int channelD;
+		public int external;
+		public int aux;
+		public int digital;
+	}
+
 }

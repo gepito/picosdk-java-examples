@@ -10,12 +10,17 @@ import com.sun.jna.ptr.ShortByReference;
 
 import java.io.UnsupportedEncodingException;
 import java.util.Scanner;
+import java.util.concurrent.TimeUnit;
 
 import com.picotech.picoscope.PicoInfo;
 import com.picotech.picoscope.PicoStatus;
-import com.picotech.picoscope.ps3000a.jna.PS3000ACLibrary.PS3000A_CHANNEL;
-import com.picotech.picoscope.ps3000a.jna.PS3000ACLibrary.PS3000A_THRESHOLD_MODE;
-import com.picotech.picoscope.ps3000a.jna.PS3000ACLibrary.PS3000A_TRIGGER_CHANNEL_PROPERTIES;
+import com.picotech.picoscope.ps3000a.jna.PS3000ACLibrary.*;
+import com.sun.jna.Callback;
+//import com.picotech.picoscope.ps3000a.jna.PS3000ACLibrary.PS3000A_CHANNEL;
+//import com.picotech.picoscope.ps3000a.jna.PS3000ACLibrary.PS3000A_THRESHOLD_MODE;
+//import com.picotech.picoscope.ps3000a.jna.PS3000ACLibrary.PS3000A_TRIGGER_CHANNEL_PROPERTIES;
+//import com.picotech.picoscope.ps3000a.jna.PS3000ACLibrary.PS3000A_TRIGGER_CONDITIONS_V2;
+//import com.picotech.picoscope.ps3000a.jna.PS3000ACLibrary.PS3000A_TRIGGER_STATE;
 import com.sun.jna.Library;
 import com.sun.jna.Memory;
 import com.sun.jna.Native;
@@ -33,6 +38,23 @@ public class Pico3000Use {
 	static ShortByReference handleRef = new ShortByReference();
 	static short handle;
 	static int openStatus = PicoStatus.PICO_OK;
+
+	static Pointer bufferAPtr;
+
+	static int timebase = 100000;
+	static int preTriggerSamples = 50;
+	static int postTriggerSamples = 500;
+	static int numSamples = preTriggerSamples + postTriggerSamples; // Set to total number of samples required
+
+	static short oversample = 1; // Do not change this value
+
+	static int segmentIndex = 0;
+
+	static volatile int blockReady;
+	static blockReadyReceiver brRec;
+
+	// Allocate contiguous memory
+	static volatile Memory bufferAMem = new Memory(4 * numSamples * Native.getNativeSize(Short.TYPE));
 
 	protected Scanner consoleScanner;
 
@@ -96,6 +118,10 @@ public class Pico3000Use {
 
 	}
 
+	/*
+	 * Set Channel parameters Set Timebase Allocate Buffer
+	 * 
+	 */
 	static int PicoDoSomething(short handle) {
 
 		if (openStatus == PicoStatus.PICO_POWER_SUPPLY_NOT_CONNECTED
@@ -145,21 +171,28 @@ public class Pico3000Use {
 		int setChannelStatus = PS3000ACLibrary.INSTANCE.ps3000aSetChannel(handle, channelA, enabled, coupling, range,
 				offset);
 
-		int timebase = 0;
-		int preTriggerSamples = 0;
-		int postTriggerSamples = 1024;
-		int numSamples = preTriggerSamples + postTriggerSamples; // Set to total number of samples required
+		enabled = 0;
+		int channel = PS3000ACLibrary.PS3000AChannel.PS3000A_CHANNEL_B.ordinal();
+		setChannelStatus = PS3000ACLibrary.INSTANCE.ps3000aSetChannel(handle, channel, enabled, coupling, range,
+				offset);
+		channel = PS3000ACLibrary.PS3000AChannel.PS3000A_CHANNEL_C.ordinal();
+		setChannelStatus = PS3000ACLibrary.INSTANCE.ps3000aSetChannel(handle, channel, enabled, coupling, range,
+				offset);
+		channel = PS3000ACLibrary.PS3000AChannel.PS3000A_CHANNEL_D.ordinal();
+		setChannelStatus = PS3000ACLibrary.INSTANCE.ps3000aSetChannel(handle, channel, enabled, coupling, range,
+				offset);
+
+		short logicLevel = 11;
+		setChannelStatus = PS3000ACLibrary.INSTANCE.ps3000aSetDigitalPort(handle, 0x80, enabled, logicLevel);
+
+		System.out.println("SetChannel status : " + setChannelStatus);
 
 		// Query timebase index value (for block and rapid block captures)
 		FloatByReference timeIntervalNsRef = new FloatByReference();
 		timeIntervalNsRef.setValue((float) 0.0);
 
-		short oversample = 1; // Do not change this value
-
 		IntByReference maxSamplesRef = new IntByReference();
 		maxSamplesRef.setValue(0);
-
-		int segmentIndex = 0;
 
 		int getTimebase2Status = PicoStatus.PICO_INVALID_TIMEBASE; // Initialise to PICO_INVALID_TIMEBASE
 
@@ -172,6 +205,7 @@ public class Pico3000Use {
 			if (getTimebase2Status == 0) {
 				break;
 			} else {
+				System.out.println("GetTimebase return : " + Integer.toHexString(getTimebase2Status));
 				timebase = timebase + 1;
 			}
 		}
@@ -183,22 +217,22 @@ public class Pico3000Use {
 
 		// Set Data Buffer for Channel A
 
-		// Allocate contiguous memory
-		Pointer bufferA = new Memory(numSamples * Native.getNativeSize(Short.TYPE));
-
 		// Initialise buffer
 
 		for (int n = 0; n < numSamples; n = n + 1) {
-			bufferA.setShort(n * Native.getNativeSize(Short.TYPE), (short) 0);
+			bufferAMem.setShort(n * Native.getNativeSize(Short.TYPE), (short) 0);
 		}
+		bufferAMem.setShort(3 * Native.getNativeSize(Short.TYPE), (short) 3);
 
 		int ratioMode = PS3000ACLibrary.PS3000ARatioMode.PS3000A_RATIO_MODE_NONE.ordinal();
 
-		int setDataBufferAStatus = PS3000ACLibrary.INSTANCE.ps3000aSetDataBuffer(handle, channelA, bufferA, numSamples,
-				segmentIndex, ratioMode);
+		int setDataBufferAStatus = PS3000ACLibrary.INSTANCE.ps3000aSetDataBuffer(handle, channelA, bufferAMem,
+				numSamples, segmentIndex, ratioMode);
+
 		System.out.print("Buffer status: ");
 		System.out.println(setDataBufferAStatus);
 		System.out.println("See " + "c:/Program Files/Pico Technology/SDK/inc/PicoStatus.h" + " for details");
+		System.out.println();
 
 		return 0;
 	}
@@ -209,7 +243,10 @@ public class Pico3000Use {
 
 		if (handle > 0) {
 			PicoDoSomething(handle);
-			PicoSetTrigger(handle);
+			// PicoSetTrigger(handle);
+
+			PicoCollectAnalogBlockImmediate(handle);
+
 			PicoClose(handle);
 		} else {
 			System.out.println("Picoscope not available ");
@@ -217,13 +254,96 @@ public class Pico3000Use {
 
 	}
 
+	private static void PicoCollectAnalogBlockImmediate(short handle2) {
+		// TODO Auto-generated method stub
+		/*
+		 * 
+		 */
+
+//		PS3000ACLibrary.INSTANCE.ps3000aRunBlock(handle, noOfPreTriggerSamples, noOfPostTriggerSamples, timebase, oversample, timeIndisposedMs, segmentIndex, lpReady, pParameter)
+		IntByReference timeIndisposedMs = new IntByReference();
+		timeIndisposedMs.setValue(0);
+
+		short enable = 1;
+		short threshold = 0;
+		short autoTrigger_ms = 10;
+
+		int triggerStatus = PS3000ACLibrary.INSTANCE.ps3000aSetSimpleTrigger(handle, enable, 0, threshold, 0, 0,
+				autoTrigger_ms);
+
+		System.out.println(". blockReady : " + blockReady + " disposed_ms : " + timeIndisposedMs.getValue());
+
+		if (triggerStatus == 0) {
+			System.out.println("PicoCollectAnalogBlockImmediate: ps3000aSetSimpleTrigger completed.");
+
+			triggerStatus = PS3000ACLibrary.INSTANCE.ps3000aRunBlock(handle, preTriggerSamples, postTriggerSamples,
+					timebase, oversample, timeIndisposedMs, segmentIndex, new Pointer(0), new Pointer(0));
+			System.out.println("* blockReady : " + blockReady + " disposed_ms : " + timeIndisposedMs.getValue());
+
+			if (triggerStatus == 0) {
+				System.out.println("PicoCollectAnalogBlockImmediate: runBlock completed.");
+
+				ShortByReference picoReady = new ShortByReference();
+
+				for (int i = 0; i < 10; i++) {
+					PS3000ACLibrary.INSTANCE.ps3000aIsReady(handle2, picoReady);
+
+					System.out.println("  blockReady : " + blockReady + " isReady : " + picoReady.getValue()
+							+ " disposed_ms : " + timeIndisposedMs.getValue());
+
+					try {
+						TimeUnit.MILLISECONDS.sleep(100);
+					} catch (InterruptedException e) {
+						// TODO Auto-generated catch block
+						e.printStackTrace();
+					}
+				}
+
+				int ratioMode = PS3000ACLibrary.PS3000ARatioMode.PS3000A_RATIO_MODE_NONE.ordinal();
+				ShortByReference overflow = new ShortByReference();
+				IntByReference acqSamples = new IntByReference();
+				acqSamples.setValue(numSamples);
+				triggerStatus = PS3000ACLibrary.INSTANCE.ps3000aGetValues(handle, 0, acqSamples, 1, ratioMode,
+						segmentIndex, overflow);
+
+				if (triggerStatus == 0) {
+					System.out.println("PicoCollectAnalogBlockImmediate: GetValues completed.");
+
+					System.out.println(
+							"Acqured samples : " + acqSamples.getValue() + " Overflow : " + overflow.getValue());
+
+					for (int n = 0; n < numSamples; n = n + 1) {
+						System.out.print(bufferAMem.getShort(n * Native.getNativeSize(Short.TYPE)));
+						System.out.print(" ");
+
+						if ((n % 50) == 0) {
+							System.out.println();
+						}
+					}
+					System.out.println();
+				}
+			}
+
+		}
+
+		if (triggerStatus != 0) {
+			System.out.print("PicoCollectAnalogBlockImmediate failed: 0x");
+			System.out.println(Integer.toHexString(triggerStatus));
+		}
+
+		System.out.println();
+	}
+
 	private static void PicoClose(short handle2) {
 		// TODO Auto-generated method stub
-		
+
 		System.out.println();
 		System.out.println("Closing connection to device...");
 		PS3000ACLibrary.INSTANCE.ps3000aCloseUnit(handle);
 
+	}
+
+	private static void PicoSimpleTrigger(short handle) {
 	}
 
 	private static void PicoSetTrigger(short handle) {
@@ -240,21 +360,83 @@ public class Pico3000Use {
 		triggerProperties.thresholdUpperHysteresis = 1;
 		triggerProperties.channel = PS3000A_CHANNEL.PS3000A_CHANNEL_A.ordinal();
 		triggerProperties.thresholdMode = PS3000A_THRESHOLD_MODE.PS3000A_LEVEL.ordinal();
-		
+
 		short nChannelProperties = 1;
 		short auxOutputEnable = 0;
-		
-		int triggerStatus = PS3000ACLibrary.INSTANCE.ps3000aSetTriggerChannelProperties(handle, triggerProperties, nChannelProperties, auxOutputEnable, 20);
+
+		int triggerStatus = PS3000ACLibrary.INSTANCE.ps3000aSetTriggerChannelProperties(handle, triggerProperties,
+				nChannelProperties, auxOutputEnable, 20);
 
 		if (triggerStatus == 0) {
-			System.out.println("setTrigger completed.");
-		}
-		else {
-			System.out.print("Picoscope setTrigger failed: ");
-			System.out.println(triggerStatus);
-		}
-	}
+			System.out.println("PicoSetTrigger: setTriggerProperties completed.");
 
+			PS3000A_TRIGGER_CONDITIONS_V2 triggerConditions = new PS3000A_TRIGGER_CONDITIONS_V2();
+			triggerConditions.channelA = PS3000A_TRIGGER_STATE.PS3000A_CONDITION_DONT_CARE.ordinal();
+			triggerConditions.channelB = PS3000A_TRIGGER_STATE.PS3000A_CONDITION_DONT_CARE.ordinal();
+			triggerConditions.channelC = PS3000A_TRIGGER_STATE.PS3000A_CONDITION_DONT_CARE.ordinal();
+			triggerConditions.channelD = PS3000A_TRIGGER_STATE.PS3000A_CONDITION_DONT_CARE.ordinal();
+			triggerConditions.external = PS3000A_TRIGGER_STATE.PS3000A_CONDITION_DONT_CARE.ordinal();
+			triggerConditions.aux = PS3000A_TRIGGER_STATE.PS3000A_CONDITION_DONT_CARE.ordinal();
+			triggerConditions.pulseWidthQualifier = PS3000A_TRIGGER_STATE.PS3000A_CONDITION_DONT_CARE.ordinal();
+			triggerConditions.digital = PS3000A_TRIGGER_STATE.PS3000A_CONDITION_DONT_CARE.ordinal();
+			short nConditions = 1;
+
+			triggerStatus = PS3000ACLibrary.INSTANCE.ps3000aSetTriggerChannelConditionsV2(handle, triggerConditions,
+					nConditions);
+
+			if (triggerStatus == 0) {
+				System.out.println("PicoSetTrigger: setTriggerConditions completed.");
+
+				triggerStatus = PS3000ACLibrary.INSTANCE.ps3000aSetTriggerChannelDirections(handle,
+						PS3000A_THRESHOLD_DIRECTION.PS3000A_RISING.ordinal(),
+						PS3000A_THRESHOLD_DIRECTION.PS3000A_RISING.ordinal(),
+						PS3000A_THRESHOLD_DIRECTION.PS3000A_RISING.ordinal(),
+						PS3000A_THRESHOLD_DIRECTION.PS3000A_RISING.ordinal(),
+						PS3000A_THRESHOLD_DIRECTION.PS3000A_RISING.ordinal(),
+						PS3000A_THRESHOLD_DIRECTION.PS3000A_RISING.ordinal());
+
+				if (triggerStatus == 0) {
+					System.out.println("PicoSetTrigger: setTriggerDirections completed.");
+
+					triggerStatus = PS3000ACLibrary.INSTANCE.ps3000aSetTriggerDelay(handle, 10);
+
+					if (triggerStatus == 0) {
+						System.out.println("PicoSetTrigger: setTriggerDelay completed.");
+
+//						int ps3000aSetPulseWidthQualifierV2(short handle, PS3000A_PWQ_CONDITIONS_V2 pwqConditions, short nConditions,
+//								int direction, int lower, int upper, int type);
+						PS3000A_PWQ_CONDITIONS_V2 pwqConditions = new PS3000A_PWQ_CONDITIONS_V2();
+						pwqConditions.channelA = PS3000A_TRIGGER_STATE.PS3000A_CONDITION_DONT_CARE.ordinal();
+						pwqConditions.channelB = PS3000A_TRIGGER_STATE.PS3000A_CONDITION_DONT_CARE.ordinal();
+						pwqConditions.channelC = PS3000A_TRIGGER_STATE.PS3000A_CONDITION_DONT_CARE.ordinal();
+						pwqConditions.channelD = PS3000A_TRIGGER_STATE.PS3000A_CONDITION_DONT_CARE.ordinal();
+						pwqConditions.external = PS3000A_TRIGGER_STATE.PS3000A_CONDITION_DONT_CARE.ordinal();
+						pwqConditions.aux = PS3000A_TRIGGER_STATE.PS3000A_CONDITION_DONT_CARE.ordinal();
+						pwqConditions.digital = PS3000A_TRIGGER_STATE.PS3000A_CONDITION_DONT_CARE.ordinal();
+						nConditions = 1;
+
+						triggerStatus = PS3000ACLibrary.INSTANCE.ps3000aSetPulseWidthQualifierV2(handle, pwqConditions,
+								nConditions, 0, 0, 100, 0);
+
+						if (triggerStatus == 0) {
+							System.out.println("PicoSetTrigger: SetPulseWidthQualifier completed.");
+
+						}
+
+					}
+				}
+
+			}
+		}
+
+		if (triggerStatus != 0) {
+			System.out.print("PicoSetTrigger failed: 0x");
+			System.out.println(Integer.toHexString(triggerStatus));
+		}
+
+		System.out.println();
+
+	}
 
 	public synchronized Scanner getConsoleScanner() {
 		return consoleScanner;
@@ -263,6 +445,21 @@ public class Pico3000Use {
 	public void getAnyKeyInput() {
 		String key_input = getConsoleScanner().nextLine();
 
+	}
+
+	/*
+	 * Callback function implementation for ps3000aRunBlock typedef void (__stdcall
+	 * *ps3000aBlockReady) ( int16_t handle, PICO_STATUS status, void *pParameter );
+	 * 
+	 * 
+	 */
+
+	public interface blockReadyReceiver extends Callback {
+		default void callback(short handle, int status, Pointer ptr) {
+
+			blockReady += 1;
+
+		}
 	}
 
 }
